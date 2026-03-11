@@ -42,7 +42,7 @@ pip install -r requirements.txt
 
 ## Modelo base (XGBoost)
 
-O modelo negro é um classificador XGBoost treinado com divisão 80/20. As variáveis categóricas são codificadas via `LabelEncoder` e linhas com valores ausentes são removidas.
+O modelo black box é um classificador XGBoost treinado com divisão 80/20. As variáveis categóricas são codificadas via `LabelEncoder` e linhas com valores ausentes são removidas.
 
 Para treinar e salvar o modelo:
 

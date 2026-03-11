@@ -21,7 +21,6 @@ import logging
 import pickle
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
@@ -180,9 +179,7 @@ def save_model(model, dataset: dict, model_path=MODEL_PATH, dataset_path=DATASET
         pickle.dump(model, f)
     logger.info("Modelo salvo em: %s", model_path)
 
-    # Salva apenas o necessário para as outras etapas (sem X_train/y_train)
-    dataset_to_save = {k: v for k, v in dataset.items()
-                       if k not in ("X_train", "y_train")}
+    dataset_to_save = dataset
     with open(dataset_path, "wb") as f:
         pickle.dump(dataset_to_save, f)
     logger.info("Dataset processado salvo em: %s", dataset_path)
