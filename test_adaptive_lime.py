@@ -3,6 +3,7 @@ import pandas as pd
 from src.model_training import load_model
 from src.adaptive_lime import AdaptiveLime
 from src.slm.explanation_generator import generate_explanation
+from src.slm.semantic_arbiter import lime_to_text, check_convergence
 
 def main():
     print("1. Carregando modelo e dataset...")
@@ -47,7 +48,11 @@ def main():
         max_samples=5000,
         step_multiplier=2,
         r2_threshold=0.70,  
-        coef_tol=0.05
+        coef_tol=0.05,
+        semantic_check_fn=check_convergence,
+        lime_to_text_fn=lime_to_text,
+        prediction=status,
+        prob=prob_default,
     )
 
     print(f"\nResultado Final:")
