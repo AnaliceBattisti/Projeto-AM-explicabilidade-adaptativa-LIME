@@ -1,0 +1,26 @@
+Relatório de Execução — LIME Adaptativo
+==================================================
+
+Arquivo fonte: results\explanation_results_1773353531.csv
+Total de instâncias: 50
+Instâncias válidas: 50
+
+--- Métricas de Perturbações ---
+Média:   2668.0
+Mediana: 3200.0
+Mínimo:  200
+Máximo:  3200
+
+--- Métricas de R² ---
+Média:   0.1446
+Mediana: 0.1413
+Mínimo:  0.0533
+Máximo:  0.3025
+
+--- Tempo de Execução ---
+Tempo médio por instância: 1.73s
+Tempo total estimado: 86.46s
+
+--- Motivos de Convergência ---
+  Limite Atingido: 29 (58.0%)
+  Convergência Semântica: 21 (42.0%)

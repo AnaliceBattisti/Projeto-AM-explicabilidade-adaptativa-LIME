@@ -6,13 +6,6 @@ __pycache__/
 venv/
 env/
 
-# Outputs gerados
-results/
-docs/
-
-# Dados brutos (baixar via Kaggle)
-data/
-
 # IDE
 .vscode/
 .idea/
