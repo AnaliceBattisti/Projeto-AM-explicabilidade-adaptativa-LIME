@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.env
+venv/
+
+# Generated model artifacts
+model/xgboost.pkl
+model/dataset.pkl
+
+# Generated results (CSVs and plots)
+results/*.csv
+results/*.json
+results/*.png
+
+# OS
+.DS_Store

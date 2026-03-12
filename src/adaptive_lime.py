@@ -90,10 +90,10 @@ class AdaptiveLime:
             if lime_to_text_fn is not None and prediction is not None and prob is not None:
                 texto_anterior = lime_to_text_fn(exp.as_list()[:5], prediction, prob)
             
-            current_samples *= step_multiplier
+            current_samples = int(current_samples * step_multiplier)
             
         print("Aviso: Número máximo de perturbações atingido sem convergência total.")
-        return exp, current_samples // step_multiplier
+        return exp, max_samples
 
     def _calculate_coef_diff(self, prev_coefs, current_coefs):
         """
