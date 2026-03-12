@@ -24,7 +24,11 @@ class AdaptiveLime:
         max_samples=5000, 
         step_multiplier=2,
         r2_threshold=0.75, 
-        coef_tol=0.05
+        coef_tol=0.05,
+        semantic_check_fn=None,
+        lime_to_text_fn=None,
+        prediction=None,
+        prob=None,  
     ):
         """
         Gera a explicação de forma adaptativa, aumentando o número de perturbações
@@ -34,6 +38,7 @@ class AdaptiveLime:
         
         prev_coefs = None
         prev_top3 = None
+        texto_anterior = None
         
         print(f"Iniciando explicação adaptativa para a instância...")
 
@@ -65,11 +70,25 @@ class AdaptiveLime:
                 print(f"   R²: {current_r2:.4f} | Diff Coefs: {coef_diff:.4f} | Top-3 Match: {top3_match}")
                 
                 if current_r2 >= r2_threshold and coef_diff <= coef_tol and top3_match:
-                    print(f"Convergência atingida com {current_samples} perturbações!")
-                    return exp, current_samples
+                    if semantic_check_fn is not None and texto_anterior is not None:
+                        texto_atual = lime_to_text_fn(exp.as_list()[:5], prediction, prob)
+                        resultado = semantic_check_fn(texto_anterior, texto_atual)
+                        print(f"   Árbitro: {resultado['reason']} (confiança: {resultado['confidence']:.2f})")
+                        
+                        if resultado["converged"] and resultado["confidence"] >= 0.7:
+                            print(f"Convergência atingida com {current_samples} perturbações!")
+                            return exp, current_samples
+                        else:
+                            print(f"   Árbitro discordou — continuando...")
+                    else:
+                        print(f"Convergência atingida com {current_samples} perturbações!")
+                        return exp, current_samples
             
             prev_coefs = current_coefs
             prev_top3 = current_top3
+            
+            if lime_to_text_fn is not None and prediction is not None and prob is not None:
+                texto_anterior = lime_to_text_fn(exp.as_list()[:5], prediction, prob)
             
             current_samples *= step_multiplier
             
