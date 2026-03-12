@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from src.model_training import load_model
 from src.adaptive_lime import AdaptiveLime
+from src.slm.explanation_generator import generate_explanation
 
 def main():
     print("1. Carregando modelo e dataset...")
@@ -53,10 +54,29 @@ def main():
     print(f"Utilizadas {amostras_usadas} amostras.")
     print(f"R² Final: {exp.score:.4f}")
     
+    features = exp.as_list()[:5]
+    
     print("\nTop Features que influenciaram a decisão:")
     for feature_desc, peso in exp.as_list()[:5]:
         sinal = "+" if peso > 0 else "-"
         print(f"  [{sinal}] {feature_desc}: {peso:.4f}")
+        
+    print("\nGerando explicação em português (aguarde até 60s)...")
+    try:
+        texto = generate_explanation(
+            prediction=status,
+            probability=prob_default,
+            lime_features=features,
+        )
+
+        print("\nExplicação para o cliente:")
+        print("=" * 60)
+        print(texto)
+        print("=" * 60)
+    except ConnectionError as e:
+        print(f"\nERRO DE CONEXÃO: {e}")
+    except TimeoutError as e:
+        print(f"\nTIMEOUT: {e}")
 
 if __name__ == "__main__":
     main()
