@@ -41,13 +41,13 @@ def main():
     print(f"Probabilidade de Default (XGBoost): {prob_default:.2%}")
     print(f"Classe Predita: {status}")
     
-    exp, amostras_usadas = adaptive_lime.explain_instance(
+    exp, amostras_usadas, razao_convergencia = adaptive_lime.explain_instance(
         data_row=cliente_data,
         predict_fn=model.predict_proba,
         start_samples=50,
         max_samples=5000,
         step_multiplier=2,
-        r2_threshold=0.70,  
+        r2_threshold=0.10,  
         coef_tol=0.05,
         semantic_check_fn=check_convergence,
         lime_to_text_fn=lime_to_text,
@@ -56,7 +56,7 @@ def main():
     )
 
     print(f"\nResultado Final:")
-    print(f"Utilizadas {amostras_usadas} amostras.")
+    print(f"Utilizadas {amostras_usadas} amostras. Motivo: {razao_convergencia}")
     print(f"R² Final: {exp.score:.4f}")
     
     features = exp.as_list()[:5]

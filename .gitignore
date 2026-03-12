@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+
+# Outputs gerados
+results/
+docs/
+
+# Dados brutos (baixar via Kaggle)
+data/
+
+# IDE
+.vscode/
+.idea/

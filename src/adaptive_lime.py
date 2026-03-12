@@ -77,12 +77,12 @@ class AdaptiveLime:
                         
                         if resultado["converged"] and resultado["confidence"] >= 0.7:
                             print(f"Convergência atingida com {current_samples} perturbações!")
-                            return exp, current_samples
+                            return exp, current_samples, "semantic_converged"
                         else:
                             print(f"   Árbitro discordou — continuando...")
                     else:
                         print(f"Convergência atingida com {current_samples} perturbações!")
-                        return exp, current_samples
+                        return exp, current_samples, "r2_converged"
             
             prev_coefs = current_coefs
             prev_top3 = current_top3
@@ -93,7 +93,7 @@ class AdaptiveLime:
             current_samples *= step_multiplier
             
         print("Aviso: Número máximo de perturbações atingido sem convergência total.")
-        return exp, current_samples // step_multiplier
+        return exp, current_samples // step_multiplier, "max_samples_reached"
 
     def _calculate_coef_diff(self, prev_coefs, current_coefs):
         """
