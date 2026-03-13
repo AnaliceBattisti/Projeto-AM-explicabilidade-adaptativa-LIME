@@ -2,6 +2,7 @@ import argparse
 import sys
 import time
 import logging
+import json
 from pathlib import Path
 import pandas as pd
 import numpy as np
@@ -114,8 +115,9 @@ def explain_command(args):
         status = "Default" if classe_predita == 1 else "Adimplente"
 
         # LIME Adaptativo
+        arbiter_responses_log = []
         try:
-            exp, samples_used, reason = adaptive_lime.explain_instance(
+            exp, samples_used, reason, arbiter_responses = adaptive_lime.explain_instance(
                 data_row=data_row,
                 predict_fn=model.predict_proba,
                 start_samples=args.start_samples,
@@ -123,6 +125,7 @@ def explain_command(args):
                 step_multiplier=2,
                 r2_threshold=args.r2_threshold,
                 coef_tol=0.05,
+                stable_required=args.stable_required,
                 semantic_check_fn=check_convergence if not args.no_slm else None,
                 lime_to_text_fn=lime_to_text if not args.no_slm else None,
                 prediction=status,
@@ -130,6 +133,7 @@ def explain_command(args):
             )
 
             final_r2 = exp.score
+            arbiter_responses_log = arbiter_responses
 
             # Top-5 features para registro
             top_features = "; ".join(
@@ -145,6 +149,24 @@ def explain_command(args):
 
         elapsed_time = time.time() - start_time_instance
 
+        # Serializar respostas do ÁRBITRO para JSON
+        arbiter_responses_json = ""
+        if arbiter_responses_log and not args.no_slm:
+            arbiter_responses_json = json.dumps(arbiter_responses_log, ensure_ascii=False)
+
+        # Explicação textual em português via SLM (generate_explanation)
+        slm_explanation = ""
+        if not args.no_slm and samples_used > 0:
+            try:
+                slm_explanation = generate_explanation(
+                    prediction=status,
+                    probability=prob_default,
+                    lime_features=exp.as_list()[:5],
+                )
+                logger.info(f"  Explicação gerada para instância {original_idx}")
+            except (ConnectionError, TimeoutError) as e:
+                logger.warning(f"  SLM indisponível para explicação textual: {e}")
+
         results.append({
             "original_idx": original_idx,
             "predicted_class": status,
@@ -155,6 +177,8 @@ def explain_command(args):
             "execution_time_sec": round(elapsed_time, 4),
             "used_slm": not args.no_slm,
             "top_features": top_features,
+            "arbiter_responses_json": arbiter_responses_json,
+            "slm_explanation": slm_explanation,
         })
 
     total_time = time.time() - start_time_all
@@ -168,7 +192,7 @@ def explain_command(args):
 
     # Gerar gráficos se solicitado
     if args.plot:
-        plot_results(output_file)
+        plot_results(output_file, r2_threshold=args.r2_threshold)
 
     return output_file
 
@@ -190,12 +214,12 @@ def evaluate_command(args):
         csv_path = csvs[0]
         logger.info(f"Usando arquivo mais recente: {csv_path}")
 
-    plot_results(csv_path)
+    plot_results(csv_path, r2_threshold=args.r2_threshold)
 
 
 # ─────────────────────────── GRÁFICOS E RELATÓRIO ───────────────────────────
 
-def plot_results(csv_path):
+def plot_results(csv_path, r2_threshold=0.75):
     """Gera gráficos publicáveis e relatório a partir do CSV de resultados."""
     df = pd.read_csv(csv_path)
     timestamp = int(time.time())
@@ -228,6 +252,7 @@ def plot_results(csv_path):
     fig, ax = plt.subplots(figsize=(9, 5))
     reason_labels = {
         "r2_converged": "Convergência R²",
+        "stability_converged": "Convergência por Estabilidade",
         "semantic_converged": "Convergência Semântica",
         "max_samples_reached": "Limite Atingido",
     }
@@ -239,7 +264,6 @@ def plot_results(csv_path):
         hue="convergence_label", style="convergence_label",
         s=80, ax=ax
     )
-    r2_threshold = 0.10
     ax.axhline(r2_threshold, color="gray", linestyle="--", alpha=0.7,
                label=f"Limiar R² = {r2_threshold}")
     ax.set_title("Estabilidade (R²) vs Custo Computacional")
@@ -263,19 +287,20 @@ def plot_results(csv_path):
     fig.savefig(DOCS_DIR / f"boxplot_samples_convergence_{timestamp}.png")
     plt.close(fig)
 
-    # ── 4. Histograma de Tempo de Execução ──
-    fig, ax = plt.subplots(figsize=(9, 5))
-    sns.histplot(df_valid["execution_time_sec"], bins=15, kde=True,
-                 color=palette[2], ax=ax)
-    mean_time = df_valid["execution_time_sec"].mean()
-    ax.axvline(mean_time, color="red", linestyle="--", linewidth=1.5,
-               label=f"Média: {mean_time:.2f}s")
-    ax.set_title("Distribuição do Tempo de Execução por Instância")
-    ax.set_xlabel("Tempo (segundos)")
-    ax.set_ylabel("Frequência")
+    # ── 4. Boxplot: R² por Classe Predita ──
+    fig, ax = plt.subplots(figsize=(8, 5))
+    sns.boxplot(
+        data=df_valid, x="predicted_class", y="final_r2",
+        hue="predicted_class", palette="Set2", legend=False, ax=ax
+    )
+    ax.axhline(r2_threshold, color="gray", linestyle="--", alpha=0.7,
+               label=f"Limiar R² = {r2_threshold}")
+    ax.set_title("Qualidade da Explicação (R²) por Classe Predita")
+    ax.set_xlabel("Classe Predita")
+    ax.set_ylabel("R² Final do LIME")
     ax.legend()
     fig.tight_layout()
-    fig.savefig(DOCS_DIR / f"hist_execution_time_{timestamp}.png")
+    fig.savefig(DOCS_DIR / f"boxplot_r2_class_{timestamp}.png")
     plt.close(fig)
 
     # ── 5. Barplot: Contagem por Motivo de Convergência ──
@@ -292,19 +317,20 @@ def plot_results(csv_path):
     fig.savefig(DOCS_DIR / f"bar_convergence_reasons_{timestamp}.png")
     plt.close(fig)
 
-    # ── 6. Scatter: Tempo vs Perturbações ──
+    # ── 6. Boxplot: R² por Motivo de Convergência ──
     fig, ax = plt.subplots(figsize=(9, 5))
-    sns.scatterplot(
-        data=df_valid, x="samples_used", y="execution_time_sec",
-        hue="convergence_label", style="convergence_label",
-        s=80, ax=ax
+    sns.boxplot(
+        data=df_valid, x="convergence_label", y="final_r2",
+        hue="convergence_label", palette="Set2", legend=False, ax=ax
     )
-    ax.set_title("Tempo de Execução vs Perturbações")
-    ax.set_xlabel("Número de Perturbações")
-    ax.set_ylabel("Tempo de Execução (s)")
-    ax.legend(title="Convergência")
+    ax.axhline(r2_threshold, color="gray", linestyle="--", alpha=0.7,
+               label=f"Limiar R² = {r2_threshold}")
+    ax.set_title("Qualidade da Explicação (R²) por Tipo de Convergência")
+    ax.set_xlabel("Tipo de Convergência")
+    ax.set_ylabel("R² Final do LIME")
+    ax.legend()
     fig.tight_layout()
-    fig.savefig(DOCS_DIR / f"scatter_time_samples_{timestamp}.png")
+    fig.savefig(DOCS_DIR / f"boxplot_r2_convergence_{timestamp}.png")
     plt.close(fig)
 
     # ── 7. Painel Resumo (2x2) ──
@@ -324,11 +350,14 @@ def plot_results(csv_path):
     axes[0, 1].axhline(r2_threshold, color="gray", linestyle="--", alpha=0.7)
     axes[0, 1].set_title("R² vs Perturbações")
 
-    # 7c - Tempo de execução
-    sns.histplot(df_valid["execution_time_sec"], bins=15, kde=True,
-                 color=palette[2], ax=axes[1, 0])
-    axes[1, 0].set_title("Distribuição de Tempo")
-    axes[1, 0].set_xlabel("Tempo (s)")
+    # 7c - R² por classe
+    sns.boxplot(
+        data=df_valid, x="predicted_class", y="final_r2",
+        hue="predicted_class", palette="Set2", legend=False, ax=axes[1, 0]
+    )
+    axes[1, 0].axhline(r2_threshold, color="gray", linestyle="--", alpha=0.7)
+    axes[1, 0].set_title("R² por Classe Predita")
+    axes[1, 0].set_xlabel("Classe")
 
     # 7d - Barras de convergência
     rc = df_valid["convergence_label"].value_counts()
@@ -341,6 +370,57 @@ def plot_results(csv_path):
     fig.tight_layout()
     fig.savefig(DOCS_DIR / f"panel_summary_{timestamp}.png")
     plt.close(fig)
+
+    # ── 8. Top Features — Frequência de Aparição ──
+    feature_records = []
+    for _, row in df_valid.iterrows():
+        if not row["top_features"]:
+            continue
+        for item in str(row["top_features"]).split(";"):
+            item = item.strip()
+            if not item or ":" not in item:
+                continue
+            # Formato: "feat_desc: peso"
+            last_colon = item.rfind(":")
+            feat = item[:last_colon].strip()
+            try:
+                weight = float(item[last_colon + 1:].strip())
+                feature_records.append({"feature": feat, "weight": weight})
+            except ValueError:
+                continue
+
+    if feature_records:
+        df_feats = pd.DataFrame(feature_records)
+
+        # Frequência
+        freq = df_feats["feature"].value_counts().head(10)
+        fig, ax = plt.subplots(figsize=(10, 5))
+        bars = ax.barh(freq.index[::-1], freq.values[::-1], color=palette[3])
+        for bar, val in zip(bars, freq.values[::-1]):
+            ax.text(bar.get_width() + 0.2, bar.get_y() + bar.get_height() / 2,
+                    str(val), va="center", fontweight="bold")
+        ax.set_title("Frequência de Aparição nas Top-5 Features (LIME)")
+        ax.set_xlabel("Nº de instâncias em que a feature aparece")
+        fig.tight_layout()
+        fig.savefig(DOCS_DIR / f"bar_feature_frequency_{timestamp}.png")
+        plt.close(fig)
+
+        # Peso médio absoluto
+        mean_weight = (
+            df_feats.groupby("feature")["weight"]
+            .apply(lambda x: x.abs().mean())
+            .sort_values(ascending=False)
+            .head(10)
+        )
+        fig, ax = plt.subplots(figsize=(10, 5))
+        colors = [palette[0] if w > 0 else palette[1]
+                  for w in df_feats.groupby("feature")["weight"].mean().reindex(mean_weight.index)]
+        ax.barh(mean_weight.index[::-1], mean_weight.values[::-1], color=palette[4])
+        ax.set_title("Peso Médio Absoluto das Top Features (LIME)")
+        ax.set_xlabel("|Peso| médio no modelo linear local")
+        fig.tight_layout()
+        fig.savefig(DOCS_DIR / f"bar_feature_weight_{timestamp}.png")
+        plt.close(fig)
 
     # ── Relatório de Texto (UTF-8) ──
     report_path = DOCS_DIR / f"summary_report_{timestamp}.txt"
@@ -372,7 +452,20 @@ def plot_results(csv_path):
             pct = count / len(df_valid) * 100
             f.write(f"  {reason}: {count} ({pct:.1f}%)\n")
 
-    logger.info(f"Gráficos (7 figuras) e relatório salvos em {DOCS_DIR}/")
+        if feature_records:
+            f.write(f"\n--- Top Features (frequência e peso médio absoluto) ---\n")
+            summary = (
+                df_feats.groupby("feature")["weight"]
+                .agg(frequencia="count", peso_medio_abs=lambda x: x.abs().mean())
+                .sort_values("frequencia", ascending=False)
+                .head(10)
+            )
+            f.write(f"{'Feature':<55} {'Freq':>6}  {'|Peso| médio':>12}\n")
+            f.write(f"{'-'*75}\n")
+            for feat, row in summary.iterrows():
+                f.write(f"{feat:<55} {int(row['frequencia']):>6}  {row['peso_medio_abs']:>12.4f}\n")
+
+    logger.info(f"Gráficos (9 figuras) e relatório salvos em {DOCS_DIR}/")
     logger.info(f"Relatório: {report_path}")
 
 
@@ -402,8 +495,10 @@ def main():
                                 help="Perturbações iniciais (padrão: 50)")
     parser_explain.add_argument("--max_samples", type=int, default=5000,
                                 help="Limite máximo de perturbações (padrão: 5000)")
-    parser_explain.add_argument("--r2_threshold", type=float, default=0.10,
-                                help="Limiar de R² para convergência (padrão: 0.10)")
+    parser_explain.add_argument("--r2_threshold", type=float, default=0.75,
+                                help="Limiar de R² para referência nos gráficos (padrão: 0.75)")
+    parser_explain.add_argument("--stable_required", type=int, default=2,
+                                help="Iterações consecutivas estáveis para convergir (padrão: 2)")
     parser_explain.add_argument("--random", action="store_true",
                                 help="Amostragem aleatória do conjunto de teste")
     parser_explain.add_argument("--no_slm", action="store_true",
@@ -416,6 +511,8 @@ def main():
                                          help="Gera gráficos e relatório a partir de CSV existente")
     parser_eval.add_argument("--input_csv", required=False,
                              help="Caminho do CSV de resultados (padrão: mais recente)")
+    parser_eval.add_argument("--r2_threshold", type=float, default=0.75,
+                             help="Limiar de R² desenhado nos gráficos (padrão: 0.75)")
 
     args = parser.parse_args()
 

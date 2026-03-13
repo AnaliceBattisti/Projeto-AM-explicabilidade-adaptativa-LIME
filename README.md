@@ -107,15 +107,15 @@ python src/pipeline.py explain --num_instances 50 --random --plot
 python src/pipeline.py explain --num_instances 50 --random --no_slm --plot
 ```
 
-| Argumento         | Descrição                                    | Padrão  |
-| ----------------- | -------------------------------------------- | ------- |
-| `--num_instances` | Número de clientes a explicar                | `50`    |
-| `--start_samples` | Perturbações iniciais                        | `50`    |
-| `--max_samples`   | Limite máximo de perturbações                | `5000`  |
-| `--r2_threshold`  | Limiar de R² para convergência               | `0.10`  |
-| `--random`        | Amostragem aleatória do teste                | `False` |
-| `--no_slm`        | Desativar árbitro semântico (só R²)          | `False` |
-| `--plot`          | Gerar gráficos ao final                      | `False` |
+| Argumento         | Descrição                           | Padrão  |
+| ----------------- | ----------------------------------- | ------- |
+| `--num_instances` | Número de clientes a explicar       | `50`    |
+| `--start_samples` | Perturbações iniciais               | `50`    |
+| `--max_samples`   | Limite máximo de perturbações       | `5000`  |
+| `--r2_threshold`  | Limiar de R² para convergência      | `0.10`  |
+| `--random`        | Amostragem aleatória do teste       | `False` |
+| `--no_slm`        | Desativar árbitro semântico (só R²) | `False` |
+| `--plot`          | Gerar gráficos ao final             | `False` |
 
 Os resultados são salvos em `results/explanation_results_TIMESTAMP.csv` com as colunas:
 
@@ -130,6 +130,8 @@ Os resultados são salvos em `results/explanation_results_TIMESTAMP.csv` com as 
 | `execution_time_sec`  | Tempo de execução (segundos)            |
 | `used_slm`            | Se usou o árbitro semântico             |
 | `top_features`        | Top-5 features e seus pesos             |
+| `slm_responses_json`  | Respostas do árbitro de convergência (JSON) |
+| `slm_explanation`     | Explicação textual da SLM (Qwen2.5) em português |
 
 ### 3. Avaliação e gráficos
 
@@ -152,10 +154,12 @@ O comando `evaluate` (ou `explain --plot`) gera 7 visualizações em `docs/`:
 | `hist_samples_*.png`                | Distribuição do número de perturbações           |
 | `scatter_r2_samples_*.png`          | R² vs perturbações (colorido por convergência)   |
 | `boxplot_samples_convergence_*.png` | Boxplot de perturbações por tipo de convergência |
-| `hist_execution_time_*.png`         | Distribuição do tempo de execução                |
+| `boxplot_r2_class_*.png`            | R² por classe predita (Default vs Adimplente)    |
 | `bar_convergence_reasons_*.png`     | Contagem de motivos de convergência              |
-| `scatter_time_samples_*.png`        | Tempo de execução vs perturbações                |
+| `boxplot_r2_convergence_*.png`      | R² por tipo de convergência                      |
 | `panel_summary_*.png`               | Painel resumo 2x2 (ideal para artigo/slides)     |
+| `bar_feature_frequency_*.png`       | Frequência de aparição de cada feature nas top-5 |
+| `bar_feature_weight_*.png`          | Peso médio absoluto das features no modelo local |
 
 Além disso, gera um `summary_report_*.txt` com estatísticas descritivas.
 

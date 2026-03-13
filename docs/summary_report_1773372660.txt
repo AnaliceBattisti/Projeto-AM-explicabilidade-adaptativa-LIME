@@ -1,0 +1,40 @@
+Relatório de Execução — LIME Adaptativo
+==================================================
+
+Arquivo fonte: results\explanation_results_1773372660.csv
+Total de instâncias: 50
+Instâncias válidas: 50
+
+--- Métricas de Perturbações ---
+Média:   4912.0
+Mediana: 6400.0
+Mínimo:  800
+Máximo:  6400
+
+--- Métricas de R² ---
+Média:   0.1410
+Mediana: 0.1443
+Mínimo:  0.0618
+Máximo:  0.2756
+
+--- Tempo de Execução ---
+Tempo médio por instância: 2.47s
+Tempo total estimado: 123.62s
+
+--- Motivos de Convergência ---
+  Convergência Semântica: 30 (60.0%)
+  Limite Atingido: 20 (40.0%)
+
+--- Top Features (frequência e peso médio absoluto) ---
+Feature                                                   Freq  |Peso| médio
+---------------------------------------------------------------------------
+person_home_ownership=0                                     29        0.1128
+loan_grade=0                                                24        0.0971
+person_income > 80000.00                                    23        0.1618
+loan_amnt > 12250.00                                        18        0.1000
+person_home_ownership=3                                     18        0.1792
+loan_int_rate <= 7.90                                       15        0.0818
+loan_grade=1                                                14        0.0848
+0.15 < loan_percent_income <= 0.23                          11        0.1013
+loan_intent=5                                               10        0.1327
+0.09 < loan_percent_income <= 0.15                           9        0.0889

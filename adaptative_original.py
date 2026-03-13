@@ -59,13 +59,12 @@ def main():
     print(f"Utilizadas {amostras_usadas} amostras. Motivo: {razao_convergencia}")
     print(f"R² Final: {exp.score:.4f}")
 
-    # Exibir respostas do SLM se existirem
+    # Respostas do árbitro de convergência
     if arbiter_responses:
         print("\n--- Respostas do Árbitro de Convergência ---")
         for resp in arbiter_responses:
             print(f"  Amostras: {resp['samples']} | Confiança: {resp['confidence']:.2f}")
             print(f"  Motivo: {resp['reason']}")
-            print(f"  Resposta bruta: {resp['raw_response'][:150]}...")  # Primeiros 150 caracteres
             print()
     
     features = exp.as_list()[:5]
